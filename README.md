@@ -178,6 +178,7 @@ typescript/
 docs/
   schema-2026-07-28.ts          the upstream schema, vendored for reference
   upstream-changelog-*.mdx      the upstream changelog
+  NOTICE.md                     attribution - those two files are not mine
 ```
 
 ## Running it
@@ -206,3 +207,7 @@ than teaching you a library.
 ---
 
 MIT © Devanshu Biswas. Protocol revision `2026-07-28`.
+
+The two files under `docs/` are copied unmodified from the MCP specification
+(MIT, © Anthropic, PBC and contributors) so that every claim here can be
+checked against the text it was built from — see `docs/NOTICE.md`.
