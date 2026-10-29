@@ -1,0 +1,16 @@
+{
+  "name": "mcpfromzero",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP from Zero - the TypeScript half. One spec, two implementations, one conformance suite.",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "conformance": "cd .. && python conformance/run.py --impl typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "level": 0,
+  "title": "JSON-RPC 2.0 envelope and framing",
+  "steps": [
+    {
+      "name": "a well-formed request gets a well-formed response",
+      "send": {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 1, "result": {"<type>": "object"}, "error": "<absent>"}
+    },
+    {
+      "name": "a string id comes back as the same string",
+      "send": {"jsonrpc": "2.0", "id": "abc", "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": "abc"}
+    },
+    {
+      "name": "an unknown method is -32601, not a crash",
+      "send": {"jsonrpc": "2.0", "id": 2, "method": "nope/doesNotExist", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 2, "error": {"code": -32601, "message": {"<contains>": "Method not found"}}, "result": "<absent>"}
+    },
+    {
+      "name": "a missing jsonrpc version is -32600",
+      "send": {"id": 3, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 3, "error": {"code": -32600}}
+    },
+    {
+      "name": "the wrong jsonrpc version is -32600",
+      "send": {"jsonrpc": "1.0", "id": 4, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 4, "error": {"code": -32600}}
+    },
+    {
+      "name": "params of the wrong type is -32600",
+      "send": {"jsonrpc": "2.0", "id": 5, "method": "server/discover", "params": "not an object"},
+      "expect": {"jsonrpc": "2.0", "id": 5, "error": {"code": -32600}}
+    },
+    {
+      "name": "a boolean id is refused - JSON-RPC allows only a string or a number",
+      "send": {"jsonrpc": "2.0", "id": true, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "error": {"code": -32600}}
+    }
+  ]
+}

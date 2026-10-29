@@ -1,0 +1,50 @@
+{
+  "level": 1,
+  "title": "server/discover replaces the initialize handshake",
+  "steps": [
+    {
+      "name": "discover advertises a LIST of versions for the client to pick from",
+      "send": {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "supportedVersions": {"<type>": "array"},
+          "capabilities": {"<type>": "object"},
+          "ttlMs": {"<type>": "number"},
+          "resultType": "complete",
+          "_meta": {"io.modelcontextprotocol/serverInfo": {"name": {"<type>": "string"}}}
+        }
+      }
+    },
+    {
+      "name": "initialize is GONE - it must be unknown, not handled",
+      "send": {"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}}},
+      "expect": {"jsonrpc": "2.0", "id": 2, "error": {"code": -32601}}
+    },
+    {
+      "name": "ping is gone too",
+      "send": {"jsonrpc": "2.0", "id": 3, "method": "ping", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 3, "error": {"code": -32601}}
+    },
+    {
+      "name": "a request with NO protocol version still works - older clients must not break",
+      "send": {"jsonrpc": "2.0", "id": 4, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 4, "result": {"<type>": "object"}, "error": "<absent>"}
+    },
+    {
+      "name": "a supported version in _meta is accepted",
+      "send": {"jsonrpc": "2.0", "id": 5, "method": "server/discover", "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}}},
+      "expect": {"jsonrpc": "2.0", "id": 5, "result": {"<type>": "object"}}
+    },
+    {
+      "name": "an unsupported version is -32022, the renumbered MCP code",
+      "send": {"jsonrpc": "2.0", "id": 6, "method": "server/discover", "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "1999-01-01"}}},
+      "expect": {"jsonrpc": "2.0", "id": 6, "error": {"code": -32022, "data": {"supported": {"<type>": "array"}}}}
+    },
+    {
+      "name": "_meta that is not an object is -32602",
+      "send": {"jsonrpc": "2.0", "id": 7, "method": "server/discover", "params": {"_meta": "nope"}},
+      "expect": {"jsonrpc": "2.0", "id": 7, "error": {"code": -32602}}
+    }
+  ]
+}

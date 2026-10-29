@@ -1,0 +1,16 @@
+{
+  "level": 0,
+  "title": "Unparseable input answers with a null id, it does not go silent",
+  "steps": [
+    {
+      "name": "broken JSON is -32700 with id null",
+      "send": "<raw>{ this is not json",
+      "expect": {"jsonrpc": "2.0", "id": null, "error": {"code": -32700}}
+    },
+    {
+      "name": "and the server is still alive afterwards",
+      "send": {"jsonrpc": "2.0", "id": 9, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 9, "result": {"<type>": "object"}}
+    }
+  ]
+}

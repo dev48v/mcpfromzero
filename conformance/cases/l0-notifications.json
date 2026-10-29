@@ -1,0 +1,21 @@
+{
+  "level": 0,
+  "title": "A notification is never answered",
+  "steps": [
+    {
+      "name": "a notification with no id draws no reply",
+      "send": {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 1}},
+      "expectNoReply": true
+    },
+    {
+      "name": "an id of null is a notification, not a request",
+      "send": {"jsonrpc": "2.0", "id": null, "method": "notifications/cancelled", "params": {"requestId": 1}},
+      "expectNoReply": true
+    },
+    {
+      "name": "a real request after them still answers, proving nothing was buffered",
+      "send": {"jsonrpc": "2.0", "id": 11, "method": "server/discover", "params": {}},
+      "expect": {"jsonrpc": "2.0", "id": 11, "result": {"<type>": "object"}}
+    }
+  ]
+}
