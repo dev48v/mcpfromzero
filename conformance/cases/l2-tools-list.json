@@ -1,0 +1,336 @@
+{
+  "level": 2,
+  "title": "tools/list is cacheable, deterministic and paginated",
+  "steps": [
+    {
+      "name": "the tools capability is advertised, or tools/list may not be answered at all",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "server/discover",
+        "params": {}
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "tools": {
+              "<type>": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "ttlMs and cacheScope are REQUIRED on tools/list in 2026-07-28 (SEP-2549)",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "tools": {
+            "<type>": "array"
+          },
+          "ttlMs": {
+            "<type>": "number"
+          },
+          "cacheScope": {
+            "<oneof>": [
+              "public",
+              "private"
+            ]
+          },
+          "resultType": "complete"
+        }
+      }
+    },
+    {
+      "name": "page one is the first two tools BY NAME - deterministic order, not insertion order",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/list",
+        "params": {}
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "tools": [
+            {
+              "name": "add",
+              "title": "Add two numbers",
+              "description": {
+                "<type>": "string"
+              },
+              "inputSchema": {
+                "type": "object",
+                "required": [
+                  "a",
+                  "b"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "a": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  }
+                }
+              },
+              "outputSchema": {
+                "type": "object",
+                "required": [
+                  "sum"
+                ]
+              },
+              "annotations": {
+                "readOnlyHint": true,
+                "openWorldHint": false
+              }
+            },
+            {
+              "name": "divide",
+              "title": "<absent>",
+              "inputSchema": {
+                "type": "object",
+                "required": [
+                  "numerator",
+                  "denominator"
+                ]
+              },
+              "outputSchema": "<absent>"
+            }
+          ],
+          "nextCursor": {
+            "<type>": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "a repeat of the same request is byte-identical - this is what makes the ttl usable",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/list",
+        "params": {}
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "tools": [
+            {
+              "name": "add"
+            },
+            {
+              "name": "divide"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "the cursor is opaque - a client must never parse it",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/list",
+        "params": {
+          "cursor": "YWZ0ZXI6ZGl2aWRl"
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "tools": [
+            {
+              "name": "echo"
+            },
+            {
+              "name": "now"
+            }
+          ],
+          "nextCursor": {
+            "<type>": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "the LAST page carries no nextCursor - one sent here loops a client forever",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "tools/list",
+        "params": {
+          "cursor": "YWZ0ZXI6bm93"
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "tools": [
+            {
+              "name": "slugify"
+            }
+          ],
+          "nextCursor": "<absent>"
+        }
+      }
+    },
+    {
+      "name": "a cursor naming a tool that no longer exists resumes at the next name, it does not fail",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "tools/list",
+        "params": {
+          "cursor": "YWZ0ZXI6ZGVsZXRlZA=="
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "result": {
+          "tools": [
+            {
+              "name": "divide"
+            },
+            {
+              "name": "echo"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a cursor WITHOUT base64 padding is accepted - this is the form the spec's own encoders mint",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 20,
+        "method": "tools/list",
+        "params": {
+          "cursor": "YWZ0ZXI6ZWNobw"
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 20,
+        "result": {
+          "tools": [
+            {
+              "name": "now"
+            },
+            {
+              "name": "slugify"
+            }
+          ],
+          "nextCursor": "<absent>"
+        }
+      }
+    },
+    {
+      "name": "the PADDED form of the same cursor must give the identical page, or the two implementations have forked",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 21,
+        "method": "tools/list",
+        "params": {
+          "cursor": "YWZ0ZXI6ZWNobw=="
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 21,
+        "result": {
+          "tools": [
+            {
+              "name": "now"
+            },
+            {
+              "name": "slugify"
+            }
+          ],
+          "nextCursor": "<absent>"
+        }
+      }
+    },
+    {
+      "name": "a junk cursor is -32602, the same code as any other bad parameter",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "tools/list",
+        "params": {
+          "cursor": "!!!not-a-cursor!!!"
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "error": {
+          "code": -32602
+        }
+      }
+    },
+    {
+      "name": "a non-string cursor is -32602 as well",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "method": "tools/list",
+        "params": {
+          "cursor": 2
+        }
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "error": {
+          "code": -32602
+        }
+      }
+    },
+    {
+      "name": "tools/list works with no params at all - cursor is optional",
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "method": "tools/list"
+      },
+      "expect": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "result": {
+          "tools": [
+            {
+              "name": "add"
+            },
+            {
+              "name": "divide"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "notifications/tools/list_changed is a NOTIFICATION and is never answered",
+      "send": {
+        "jsonrpc": "2.0",
+        "method": "notifications/tools/list_changed"
+      },
+      "expectNoReply": true
+    }
+  ]
+}

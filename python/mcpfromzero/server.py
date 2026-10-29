@@ -25,6 +25,7 @@ from .jsonrpc import (
     result_response,
     validate_envelope,
 )
+from .tools import ToolRegistry
 
 SERVER_INFO = {"name": "mcpfromzero", "title": "MCP from Zero", "version": "0.1.0"}
 
@@ -43,7 +44,22 @@ class Server:
         self._handlers: dict[str, Callable[[Any, RequestContext], dict]] = {}
         self._capabilities: dict = {}
         self._instructions: str | None = None
+        self.tools: ToolRegistry | None = None
         self.register("server/discover", self._discover)
+
+    def mount_tools(self, registry: ToolRegistry) -> None:
+        """Wire L2 in.
+
+        A capability is a PROMISE, so it is declared here rather than hardcoded:
+        a server that advertises `tools` and then answers -32601 has lied, and a
+        server that answers `tools/list` without advertising it has made the
+        capability meaningless. The two have to move together, which is why
+        mounting does both.
+        """
+        self.tools = registry
+        self.capability("tools", {"listChanged": False})
+        self.register("tools/list", lambda params, ctx: registry.list(params))
+        self.register("tools/call", lambda params, ctx: registry.call(params))
 
     # -------------------------------------------------------------- wiring
     def register(self, method: str, handler: Callable[[Any, RequestContext], dict]) -> None:

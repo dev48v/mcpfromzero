@@ -1,0 +1,119 @@
+{
+  "level": 2,
+  "title": "tools/call separates a protocol error from a tool that failed",
+  "steps": [
+    {
+      "name": "a plain call returns content, and no isError",
+      "send": {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "hello"}}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "content": [{"type": "text", "text": "hello"}],
+          "resultType": "complete",
+          "isError": "<absent>"
+        }
+      }
+    },
+    {
+      "name": "a tool with an outputSchema returns BOTH structuredContent and a text rendering",
+      "send": {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "add", "arguments": {"a": 2, "b": 3}}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 2,
+        "result": {
+          "content": [{"type": "text", "text": "5"}],
+          "structuredContent": {"sum": 5}
+        }
+      }
+    },
+    {
+      "name": "a tool taking no arguments may be called with none",
+      "send": {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "now"}},
+      "expect": {"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "ok"}]}}
+    },
+    {
+      "name": "an optional argument may be omitted",
+      "send": {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "slugify", "arguments": {"text": "Hello World"}}},
+      "expect": {"jsonrpc": "2.0", "id": 4, "result": {"content": [{"type": "text", "text": "hello-world"}]}}
+    },
+    {
+      "name": "an enum argument is honoured",
+      "send": {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "slugify", "arguments": {"text": "Hello World", "separator": "_"}}},
+      "expect": {"jsonrpc": "2.0", "id": 5, "result": {"content": [{"type": "text", "text": "hello_world"}]}}
+    },
+    {
+      "name": "THE RULE: a tool that FAILED is isError in a normal result, never a JSON-RPC error",
+      "send": {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "divide", "arguments": {"numerator": 1, "denominator": 0}}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 6,
+        "error": "<absent>",
+        "result": {
+          "isError": true,
+          "resultType": "complete",
+          "content": [{"type": "text", "text": {"<contains>": "denominator must not be zero"}}]
+        }
+      }
+    },
+    {
+      "name": "the same tool succeeding is not isError",
+      "send": {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "divide", "arguments": {"numerator": 6, "denominator": 3}}},
+      "expect": {"jsonrpc": "2.0", "id": 7, "result": {"content": [{"type": "text", "text": "2"}], "isError": "<absent>"}}
+    },
+    {
+      "name": "THE OTHER RULE: a tool that cannot be FOUND is -32602, not a result",
+      "send": {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {"name": "no_such_tool", "arguments": {}}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 8,
+        "result": "<absent>",
+        "error": {"code": -32602, "data": {"available": {"<contains>": "echo"}}}
+      }
+    },
+    {
+      "name": "a missing required argument is -32602 and names the field",
+      "send": {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "add", "arguments": {"a": 1}}},
+      "expect": {"jsonrpc": "2.0", "id": 9, "error": {"code": -32602, "data": {"path": "arguments.b"}}}
+    },
+    {
+      "name": "an argument of the wrong type is -32602 and says which type it wanted",
+      "send": {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "add", "arguments": {"a": 1, "b": "two"}}},
+      "expect": {"jsonrpc": "2.0", "id": 10, "error": {"code": -32602, "data": {"path": "arguments.b", "expected": "number", "actual": "string"}}}
+    },
+    {
+      "name": "a boolean is NOT a number, however the host language feels about it",
+      "send": {"jsonrpc": "2.0", "id": 11, "method": "tools/call", "params": {"name": "add", "arguments": {"a": 1, "b": true}}},
+      "expect": {"jsonrpc": "2.0", "id": 11, "error": {"code": -32602, "data": {"actual": "boolean"}}}
+    },
+    {
+      "name": "additionalProperties: false is enforced",
+      "send": {"jsonrpc": "2.0", "id": 12, "method": "tools/call", "params": {"name": "add", "arguments": {"a": 1, "b": 2, "c": 3}}},
+      "expect": {"jsonrpc": "2.0", "id": 12, "error": {"code": -32602, "data": {"path": "arguments.c"}}}
+    },
+    {
+      "name": "a value outside an enum is -32602",
+      "send": {"jsonrpc": "2.0", "id": 13, "method": "tools/call", "params": {"name": "slugify", "arguments": {"text": "a b", "separator": "+"}}},
+      "expect": {"jsonrpc": "2.0", "id": 13, "error": {"code": -32602, "data": {"path": "arguments.separator"}}}
+    },
+    {
+      "name": "params with no name is -32602",
+      "send": {"jsonrpc": "2.0", "id": 14, "method": "tools/call", "params": {"arguments": {}}},
+      "expect": {"jsonrpc": "2.0", "id": 14, "error": {"code": -32602}}
+    },
+    {
+      "name": "arguments that are not an object is -32602",
+      "send": {"jsonrpc": "2.0", "id": 15, "method": "tools/call", "params": {"name": "echo", "arguments": ["hello"]}},
+      "expect": {"jsonrpc": "2.0", "id": 15, "error": {"code": -32602}}
+    },
+    {
+      "name": "a tool call carrying an unsupported protocol version is still -32022",
+      "send": {"jsonrpc": "2.0", "id": 16, "method": "tools/call", "params": {"name": "now", "_meta": {"io.modelcontextprotocol/protocolVersion": "2025-06-18"}}},
+      "expect": {"jsonrpc": "2.0", "id": 16, "error": {"code": -32022}}
+    },
+    {
+      "name": "and the server still identifies itself on a tool result",
+      "send": {"jsonrpc": "2.0", "id": 17, "method": "tools/call", "params": {"name": "now"}},
+      "expect": {
+        "jsonrpc": "2.0", "id": 17,
+        "result": {"_meta": {"io.modelcontextprotocol/serverInfo": {"name": "mcpfromzero"}}}
+      }
+    }
+  ]
+}

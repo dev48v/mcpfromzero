@@ -11,6 +11,7 @@ import {
   decode, encode, errorResponse, isNotification, isRequest,
   resultResponse, validateEnvelope,
 } from "./jsonrpc.js";
+import type { ToolRegistry } from "./tools.js";
 
 export const SERVER_INFO = { name: "mcpfromzero", title: "MCP from Zero", version: "0.1.0" };
 
@@ -29,8 +30,25 @@ export class Server {
   private caps: Record<string, unknown> = {};
   private instructionsText?: string;
 
+  tools?: ToolRegistry;
+
   constructor(public name = "mcpfromzero") {
     this.register("server/discover", (p, c) => this.discover(p, c));
+  }
+
+  /**
+   * Wire L2 in.
+   *
+   * A capability is a PROMISE, so it is declared here rather than hardcoded. A
+   * server that advertises `tools` and then answers -32601 has lied; a server
+   * that answers `tools/list` without advertising it has made the capability
+   * meaningless. The two must move together, which is why mounting does both.
+   */
+  mountTools(registry: ToolRegistry): void {
+    this.tools = registry;
+    this.capability("tools", { listChanged: false });
+    this.register("tools/list", (params) => registry.list(params));
+    this.register("tools/call", (params) => registry.call(params));
   }
 
   register(method: string, handler: Handler): void {
